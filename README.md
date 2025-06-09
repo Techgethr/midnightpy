@@ -1,6 +1,6 @@
 # MidnightPy
 
-A Python SDK for interacting with the Midnight blockchain network using GraphQL.
+A Python SDK for interacting with the [Midnight blockchain network](https://midnight.network/).
 
 ## Features
 
