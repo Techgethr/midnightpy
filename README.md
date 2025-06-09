@@ -1,105 +1,124 @@
 # MidnightPy
 
-SDK en Python para interactuar con la red blockchain Midnight usando GraphQL.
+A Python SDK for interacting with the Midnight blockchain network using GraphQL.
 
-## Características
+## Features
 
-- Soporte completo para async/await
-- Tipado estático para mejor integración con IDEs
-- Manejo robusto de errores con excepciones personalizadas
-- Reintentos automáticos para consultas fallidas
-- Validación de datos de entrada
-- Funciones de utilidad para manipulación de datos blockchain
-- Soporte para WebSocket para actualizaciones en tiempo real
-- Decodificación de datos de transacciones usando ABI
-- Estimación de costos de gas
-- Documentación completa
+- Full async/await support
+- Static typing for better IDE integration
+- Robust error handling with custom exceptions
+- Automatic retries for failed queries
+- Input data validation
+- WebSocket support for real-time updates
+- Comprehensive documentation
+- Extensive test coverage
 
-## Instalación
+## Installation
 
-1. Clona este repositorio
-2. Instala las dependencias:
+1. Clone this repository
+2. Install the dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-## Uso
+## Usage
 
-### Inicialización del Cliente
+### Client Initialization
 
 ```python
 import asyncio
 from midnightpy import BlockchainClient
 
 async def main():
-    # Inicializa el cliente con tus endpoints GraphQL
+    # Initialize the client with your GraphQL endpoints
     client = BlockchainClient(
-        http_url="http://tu-endpoint-graphql/graphql",
-        ws_url="ws://tu-endpoint-graphql/graphql",  # Opcional, para suscripciones
-        timeout=30,  # Timeout en segundos
-        retry_attempts=3  # Número de reintentos para consultas fallidas
+        http_url="http://your-graphql-endpoint/graphql",
+        ws_url="ws://your-graphql-endpoint/graphql",  # Optional, for subscriptions
+        timeout=30,  # Timeout in seconds
+        retry_attempts=3  # Number of retry attempts for failed queries
     )
 ```
 
-### Consultas Básicas
+### Basic Queries
 
 ```python
-    # Obtener el último bloque
+    # Get the latest block
     latest_block = await client.get_latest_block()
-    print(f"Altura del último bloque: {latest_block.height}")
-    print(f"Timestamp: {latest_block.datetime}")
+    print(f"Latest block height: {latest_block.height}")
+    print(f"Block timestamp: {latest_block.datetime}")
 
-    # Obtener un bloque por su hash
+    # Get a block by its hash
     block = await client.get_block_by_hash("0x123...")
     if block:
-        print(f"Bloque encontrado en altura: {block.height}")
+        print(f"Found block at height: {block.height}")
+        if block.parent:
+            print(f"Parent block hash: {block.parent.hash}")
 
-    # Obtener una transacción por su hash
-    tx = await client.get_transaction_by_hash("0x456...")
-    if tx:
-        print(f"Estado de la transacción: {tx.apply_stage}")
+    # Get a block by height
+    block = await client.get_block_by_height(12345)
+    if block:
+        print(f"Block hash: {block.hash}")
 ```
 
-### Interacción con Contratos
+### Contract Interactions
 
 ```python
-    # Obtener acción de contrato
+    # Get contract action
     action = await client.get_contract_action("0x789...")
     if action:
-        print(f"Estado del contrato: {action.state}")
+        print(f"Contract state: {action.state}")
 
-    # Estimar costo de gas
-    gas_estimate = await client.estimate_gas(
-        contract_address="0x789...",
-        data="0x..."
+    # Get contract action at specific block
+    action = await client.get_contract_action_at_block(
+        address="0x789...",
+        block_hash="0x123..."
     )
-    print(f"Costo estimado de gas: {gas_estimate}")
+    if action:
+        print(f"Historical contract state: {action.state}")
 
-    # Decodificar datos de transacción usando ABI
-    abi = {
-        # Tu ABI aquí
-    }
-    decoded = await client.decode_transaction("0x456...", abi)
-    if decoded:
-        print(f"Función llamada: {decoded['function']}")
+    # Get transactions by identifier
+    transactions = await client.get_transactions_by_identifier("0x456...")
+    for tx in transactions:
+        print(f"Transaction hash: {tx.hash}")
 ```
 
-### Suscripciones en Tiempo Real
+### Wallet Operations
 
 ```python
-    # Suscribirse a nuevos bloques
-    async for block in client.subscribe_to_blocks():
-        print(f"¡Nuevo bloque recibido! Altura: {block.height}")
+    # Connect wallet
+    session_id = await client.connect_wallet("your-viewing-key")
+    print(f"Connected with session: {session_id}")
 
-    # Suscribirse a acciones de contrato
+    # Subscribe to wallet events
+    async for event in client.subscribe_to_wallet(
+        session_id,
+        send_progress_updates=True
+    ):
+        if isinstance(event, ProgressUpdate):
+            print(f"Sync progress: {event.highest_relevant_index}")
+        else:  # RelevantTransaction
+            print(f"New transaction: {event.transaction.hash}")
+
+    # Disconnect wallet
+    await client.disconnect_wallet(session_id)
+```
+
+### Real-time Subscriptions
+
+```python
+    # Subscribe to new blocks
+    async for block in client.subscribe_to_blocks():
+        print(f"New block received! Height: {block.height}")
+
+    # Subscribe to contract actions
     async for action in client.subscribe_to_contract_actions("0x789..."):
-        print(f"¡Nueva acción de contrato! Estado: {action.state}")
+        print(f"New contract action! State: {action.state}")
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-### Manejo de Errores
+### Error Handling
 
 ```python
 from midnightpy.exceptions import (
@@ -115,86 +134,82 @@ async def main():
         client = BlockchainClient(...)
         block = await client.get_block_by_hash("invalid_hash")
     except ValidationError as e:
-        print(f"Error de validación: {e}")
+        print(f"Validation error: {e}")
     except GraphQLError as e:
-        print(f"Error de GraphQL: {e}")
-        print(f"Errores específicos: {e.errors}")
+        print(f"GraphQL error: {e}")
+        print(f"Specific errors: {e.errors}")
     except ConnectionError as e:
-        print(f"Error de conexión: {e}")
+        print(f"Connection error: {e}")
     except SubscriptionError as e:
-        print(f"Error de suscripción: {e}")
+        print(f"Subscription error: {e}")
     except BlockchainSDKException as e:
-        print(f"Error general del SDK: {e}")
+        print(f"General SDK error: {e}")
 ```
 
-## Funciones de Utilidad
+## Testing
 
-El SDK incluye varias funciones de utilidad para trabajar con datos blockchain:
+The SDK includes a comprehensive test suite using pytest. To run the tests:
 
-```python
-from midnightpy.utils import (
-    validate_hex_address,
-    validate_hash,
-    format_hex,
-    timestamp_to_datetime,
-    format_contract_state,
-    calculate_gas_estimate,
-    decode_contract_data
-)
-
-# Validar direcciones y hashes
-is_valid = validate_hex_address("0x123...")
-is_valid = validate_hash("0x456...")
-
-# Formatear valores hexadecimales
-formatted = format_hex("123...")  # Añade '0x' si no está presente
-
-# Convertir timestamps
-datetime = timestamp_to_datetime(1234567890)
-
-# Formatear estado de contrato
-state = format_contract_state("0x789...")
-
-# Calcular estimación de gas
-gas = calculate_gas_estimate("0x...")
-
-# Decodificar datos de contrato
-decoded = decode_contract_data("0x...", abi)
+1. Install test dependencies:
+```bash
+pip install -r requirements-dev.txt
 ```
+
+2. Run the tests:
+```bash
+pytest tests/
+```
+
+The test suite includes:
+- Unit tests for all SDK functionality
+- Integration tests for GraphQL queries
+- Mock tests for network operations
+- Error handling tests
+- Subscription tests
+- Parsing tests for blockchain data
 
 ## API Reference
 
 ### BlockchainClient
 
-La clase principal para interactuar con la red blockchain.
+The main class for interacting with the blockchain network.
 
-#### Métodos
+#### Methods
 
 - `get_latest_block() -> Block`
-  - Retorna el último bloque de la blockchain
+  - Returns the latest block from the blockchain
 
 - `get_block_by_hash(block_hash: str) -> Optional[Block]`
-  - Retorna un bloque por su hash, o None si no se encuentra
+  - Returns a block by its hash, or None if not found
 
-- `get_transaction_by_hash(tx_hash: str) -> Optional[Transaction]`
-  - Retorna una transacción por su hash, o None si no se encuentra
+- `get_block_by_height(height: int) -> Optional[Block]`
+  - Returns a block by its height, or None if not found
 
 - `get_contract_action(address: str) -> Optional[ContractAction]`
-  - Retorna la última acción de un contrato
+  - Returns the latest contract action
 
-- `estimate_gas(contract_address: str, data: str) -> int`
-  - Estima el costo de gas para una interacción con contrato
+- `get_contract_action_at_block(address: str, block_hash: str) -> Optional[ContractAction]`
+  - Returns a contract action at a specific block
 
-- `decode_transaction(tx_hash: str, abi: Dict[str, Any]) -> Optional[dict]`
-  - Decodifica una transacción usando el ABI del contrato
+- `get_transactions_by_identifier(identifier: str) -> List[Transaction]`
+  - Returns transactions matching the identifier
 
-- `subscribe_to_blocks()`
-  - Generador que produce nuevos bloques cuando son creados
+- `connect_wallet(viewing_key: str) -> str`
+  - Connects a wallet and returns a session ID
 
-- `subscribe_to_contract_actions(address: str)`
-  - Generador que produce nuevas acciones de contrato
+- `disconnect_wallet(session_id: str) -> bool`
+  - Disconnects a wallet session
 
-### Modelos de Datos
+- `subscribe_to_blocks(start_height: Optional[int] = None)`
+  - Generator that yields new blocks as they are created
+
+- `subscribe_to_contract_actions(address: str, start_block_height: Optional[int] = None)`
+  - Generator that yields contract actions
+
+- `subscribe_to_wallet(session_id: str, start_index: Optional[int] = None, send_progress_updates: bool = False)`
+  - Generator that yields wallet events
+
+### Data Models
 
 - `Block`
   - `hash: str`
@@ -202,8 +217,9 @@ La clase principal para interactuar con la red blockchain.
   - `protocol_version: int`
   - `timestamp: int`
   - `author: Optional[str]`
+  - `parent: Optional[Block]`
   - `transactions: List[Transaction]`
-  - `datetime: datetime` (propiedad)
+  - `datetime: datetime` (property)
 
 - `Transaction`
   - `hash: str`
@@ -213,21 +229,22 @@ La clase principal para interactuar con la red blockchain.
   - `raw: str`
   - `merkle_tree_root: str`
   - `contract_actions: List[ContractAction]`
+  - `block: Optional[Block]`
 
-- `ContractAction` (clase base)
+- `ContractAction` (base class)
   - `address: str`
   - `state: str`
   - `chain_state: str`
   - `transaction: Transaction`
 
-- `ContractCall` (extiende ContractAction)
-  - Campos adicionales:
+- `ContractCall` (extends ContractAction)
+  - Additional fields:
     - `entry_point: str`
     - `deploy: ContractDeploy`
 
-- `ContractDeploy` (extiende ContractAction)
-- `ContractUpdate` (extiende ContractAction)
+- `ContractDeploy` (extends ContractAction)
+- `ContractUpdate` (extends ContractAction)
 
-## Licencia
+## License
 
 MIT 
