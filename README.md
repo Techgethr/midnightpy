@@ -247,4 +247,4 @@ The main class for interacting with the blockchain network.
 
 ## License
 
-MIT 
+Apache 2.0
